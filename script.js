@@ -39,43 +39,70 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentIndex = 0
   const totalSlides = slides.length
   let slidesToShow = getSlidesToShow()
-  let maxIndex = totalSlides - slidesToShow
+  let maxIndex = calculateMaxIndex()
 
   function getSlidesToShow() {
     if (window.innerWidth <= 768) return 1
     return 3
   }
 
+  function calculateMaxIndex() {
+    if (totalSlides <= slidesToShow) {
+      return 0
+    }
+    // For infinite loop, we can go through all slides
+    return totalSlides - 1
+  }
+
   function updateCarousel() {
     if (slides.length === 0) return
 
     const slideWidth = slides[0].offsetWidth + 20 // including margin
-    const translateX = -currentIndex * slideWidth
+    const containerWidth = carouselTrack.parentElement.offsetWidth
+
+    // Calculate the maximum translation to ensure last image is fully visible
+    const totalWidth = totalSlides * slideWidth
+    const maxTranslation = totalWidth - containerWidth
+
+    // Calculate desired translation
+    let translateX = -currentIndex * slideWidth
+
+    // Ensure we don't go beyond the last slide being fully visible
+    if (Math.abs(translateX) > maxTranslation) {
+      translateX = -maxTranslation
+    }
+
     carouselTrack.style.transform = `translateX(${translateX}px)`
 
-    // Update button states
-    prevBtn.style.opacity = currentIndex === 0 ? "0.5" : "1"
-    nextBtn.style.opacity = currentIndex >= maxIndex ? "0.5" : "1"
-    prevBtn.disabled = currentIndex === 0
-    nextBtn.disabled = currentIndex >= maxIndex
+    // Update button states - buttons are always enabled for infinite loop
+    prevBtn.style.opacity = "1"
+    nextBtn.style.opacity = "1"
+    prevBtn.disabled = false
+    nextBtn.disabled = false
   }
 
   prevBtn.addEventListener("click", () => {
     if (currentIndex > 0) {
       currentIndex--
-      updateCarousel()
-      stopAutoPlay()
-      setTimeout(startAutoPlay, 5000)
+    } else {
+      // Loop to the end when at the beginning
+      currentIndex = maxIndex
     }
+    updateCarousel()
+    stopAutoPlay()
+    setTimeout(startAutoPlay, 5000)
   })
 
   nextBtn.addEventListener("click", () => {
     if (currentIndex < maxIndex) {
       currentIndex++
-      updateCarousel()
-      stopAutoPlay()
-      setTimeout(startAutoPlay, 5000)
+    } else {
+      // Loop to the beginning when at the end
+      currentIndex = 0
     }
+    updateCarousel()
+    stopAutoPlay()
+    setTimeout(startAutoPlay, 5000)
   })
 
   // Handle window resize
@@ -84,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearTimeout(resizeTimeout)
     resizeTimeout = setTimeout(() => {
       slidesToShow = getSlidesToShow()
-      maxIndex = totalSlides - slidesToShow
+      maxIndex = calculateMaxIndex()
 
       if (currentIndex > maxIndex) {
         currentIndex = Math.max(0, maxIndex)
@@ -94,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 250)
   })
 
-  // Auto-play carousel
+  // Auto-play carousel with infinite loop - 15 seconds interval
   let autoPlayInterval
 
   function startAutoPlay() {
@@ -102,10 +129,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentIndex < maxIndex) {
         currentIndex++
       } else {
+        // Loop back to the beginning
         currentIndex = 0
       }
       updateCarousel()
-    }, 15000) // Alterado de 4000 para 15000 (15 segundos)
+    }, 15000) // Changed to 15 seconds
   }
 
   function stopAutoPlay() {
@@ -117,7 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   carouselContainer.addEventListener("mouseenter", stopAutoPlay)
   carouselContainer.addEventListener("mouseleave", startAutoPlay)
 
-  // Touch/swipe support for mobile
+  // Touch/swipe support for mobile with infinite loop
   let startX = 0
   let currentX = 0
   let isDragging = false
@@ -141,10 +169,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const threshold = 50
 
     if (Math.abs(diffX) > threshold) {
-      if (diffX > 0 && currentIndex < maxIndex) {
-        currentIndex++
-      } else if (diffX < 0 && currentIndex > 0) {
-        currentIndex--
+      if (diffX > 0) {
+        // Swipe left - go to next
+        if (currentIndex < maxIndex) {
+          currentIndex++
+        } else {
+          currentIndex = 0 // Loop to beginning
+        }
+      } else {
+        // Swipe right - go to previous
+        if (currentIndex > 0) {
+          currentIndex--
+        } else {
+          currentIndex = maxIndex // Loop to end
+        }
       }
       updateCarousel()
     }
@@ -191,15 +229,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   })
 
-  // Keyboard navigation for carousel
+  // Keyboard navigation for carousel with infinite loop
   document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft" && currentIndex > 0) {
-      currentIndex--
+    if (e.key === "ArrowLeft") {
+      if (currentIndex > 0) {
+        currentIndex--
+      } else {
+        currentIndex = maxIndex // Loop to end
+      }
       updateCarousel()
       stopAutoPlay()
       setTimeout(startAutoPlay, 5000)
-    } else if (e.key === "ArrowRight" && currentIndex < maxIndex) {
-      currentIndex++
+    } else if (e.key === "ArrowRight") {
+      if (currentIndex < maxIndex) {
+        currentIndex++
+      } else {
+        currentIndex = 0 // Loop to beginning
+      }
       updateCarousel()
       stopAutoPlay()
       setTimeout(startAutoPlay, 5000)
