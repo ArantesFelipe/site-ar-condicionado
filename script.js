@@ -30,235 +30,158 @@ document.addEventListener("DOMContentLoaded", () => {
     })
   })
 
-  // Optimized Carousel Functionality
+  // Carousel Functionality
   const carouselTrack = document.getElementById("carouselTrack")
   const prevBtn = document.getElementById("prevBtn")
   const nextBtn = document.getElementById("nextBtn")
   const slides = document.querySelectorAll(".carousel-slide")
-  const carouselContainer = document.querySelector(".carousel-container")
 
-  // Carousel state
   let currentIndex = 0
   const totalSlides = slides.length
-  let autoPlayInterval = null
-  let isUserInteracting = false
   let slidesToShow = getSlidesToShow()
-
-  // Performance optimization - cache DOM measurements
-  let slideWidth = 0
-  let containerWidth = 0
+  let maxIndex = calculateMaxIndex()
 
   function getSlidesToShow() {
-    return window.innerWidth <= 768 ? 1 : 3
+    if (window.innerWidth <= 768) return 1
+    return 3
   }
 
-  function cacheMeasurements() {
-    if (slides.length > 0) {
-      slideWidth = slides[0].offsetWidth + 20 // including margin
-      containerWidth = carouselTrack.parentElement.offsetWidth
+  function calculateMaxIndex() {
+    if (window.innerWidth <= 768) {
+      // Mobile: can navigate through all slides
+      return Math.max(0, totalSlides - 1)
+    } else {
+      // Desktop: calculate based on container width to ensure last image is fully visible
+      return Math.max(0, totalSlides - slidesToShow)
     }
   }
 
-  function updateCarousel(smooth = true) {
+  function updateCarousel() {
     if (slides.length === 0) return
 
-    // Use cached measurements for better performance
-    const translateX = -currentIndex * slideWidth
+    const slideWidth = slides[0].offsetWidth + 20 // including margin
+    const containerWidth = carouselTrack.parentElement.offsetWidth
 
-    // Apply transform with optional smooth transition
-    carouselTrack.style.transition = smooth ? "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)" : "none"
+    let translateX = -currentIndex * slideWidth
+
+    // For desktop, ensure the last image is fully visible
+    if (window.innerWidth > 768) {
+      const totalWidth = totalSlides * slideWidth
+      const maxTranslateX = totalWidth - containerWidth
+
+      // Don't translate more than necessary to show the last image completely
+      if (Math.abs(translateX) > maxTranslateX) {
+        translateX = -maxTranslateX
+      }
+    }
+
     carouselTrack.style.transform = `translateX(${translateX}px)`
+    carouselTrack.style.transition = "transform 0.5s ease"
 
     // Update button states
-    updateButtonStates()
+    prevBtn.style.opacity = currentIndex === 0 ? "0.5" : "1"
+    nextBtn.style.opacity = currentIndex >= maxIndex ? "0.5" : "1"
+    prevBtn.disabled = currentIndex === 0
+    nextBtn.disabled = currentIndex >= maxIndex
+
+    console.log(`Index: ${currentIndex}, Max: ${maxIndex}, TranslateX: ${translateX}px`)
   }
 
-  function updateButtonStates() {
-    // Always enable buttons for infinite loop
-    prevBtn.style.opacity = "1"
-    nextBtn.style.opacity = "1"
-    prevBtn.disabled = false
-    nextBtn.disabled = false
-  }
-
-  function goToNext() {
-    currentIndex = (currentIndex + 1) % totalSlides
-    updateCarousel()
-  }
-
-  function goToPrev() {
-    currentIndex = currentIndex === 0 ? totalSlides - 1 : currentIndex - 1
-    updateCarousel()
-  }
-
-  // Optimized auto-play with better performance
-  function startAutoPlay() {
-    if (autoPlayInterval) return // Prevent multiple intervals
-
-    autoPlayInterval = setInterval(() => {
-      if (!isUserInteracting) {
-        goToNext()
-      }
-    }, 15000) // Exactly 15 seconds
-  }
-
-  function stopAutoPlay() {
-    if (autoPlayInterval) {
-      clearInterval(autoPlayInterval)
-      autoPlayInterval = null
-    }
-  }
-
-  function restartAutoPlay() {
-    stopAutoPlay()
-    setTimeout(startAutoPlay, 100) // Small delay to ensure clean restart
-  }
-
-  // Event listeners with optimized interaction handling
   prevBtn.addEventListener("click", () => {
-    isUserInteracting = true
-    goToPrev()
-    restartAutoPlay()
-    setTimeout(() => {
-      isUserInteracting = false
-    }, 1000)
+    if (currentIndex > 0) {
+      currentIndex--
+      updateCarousel()
+      stopAutoPlay()
+      setTimeout(startAutoPlay, 5000)
+    }
   })
 
   nextBtn.addEventListener("click", () => {
-    isUserInteracting = true
-    goToNext()
-    restartAutoPlay()
-    setTimeout(() => {
-      isUserInteracting = false
-    }, 1000)
+    if (currentIndex < maxIndex) {
+      currentIndex++
+      updateCarousel()
+      stopAutoPlay()
+      setTimeout(startAutoPlay, 5000)
+    }
   })
 
-  // Optimized hover behavior
-  carouselContainer.addEventListener("mouseenter", () => {
-    isUserInteracting = true
+  // Handle window resize
+  let resizeTimeout
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout)
+    resizeTimeout = setTimeout(() => {
+      slidesToShow = getSlidesToShow()
+      maxIndex = calculateMaxIndex()
+
+      if (currentIndex > maxIndex) {
+        currentIndex = Math.max(0, maxIndex)
+      }
+
+      updateCarousel()
+    }, 250)
+  })
+
+  // Auto-play carousel
+  let autoPlayInterval
+
+  function startAutoPlay() {
+    autoPlayInterval = setInterval(() => {
+      if (currentIndex < maxIndex) {
+        currentIndex++
+      } else {
+        currentIndex = 0
+      }
+      updateCarousel()
+    }, 15000)
+  }
+
+  function stopAutoPlay() {
+    clearInterval(autoPlayInterval)
+  }
+
+  // Pause auto-play on hover
+  const carouselContainer = document.querySelector(".carousel-container")
+  carouselContainer.addEventListener("mouseenter", stopAutoPlay)
+  carouselContainer.addEventListener("mouseleave", startAutoPlay)
+
+  // Touch/swipe support for mobile
+  let startX = 0
+  let currentX = 0
+  let isDragging = false
+
+  carouselContainer.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX
+    isDragging = true
     stopAutoPlay()
   })
 
-  carouselContainer.addEventListener("mouseleave", () => {
-    isUserInteracting = false
-    startAutoPlay()
+  carouselContainer.addEventListener("touchmove", (e) => {
+    if (!isDragging) return
+    currentX = e.touches[0].clientX
   })
 
-  // Optimized touch/swipe with better performance
-  let touchStartX = 0
-  let touchEndX = 0
-  let isSwiping = false
+  carouselContainer.addEventListener("touchend", (e) => {
+    if (!isDragging) return
+    isDragging = false
 
-  carouselContainer.addEventListener(
-    "touchstart",
-    (e) => {
-      touchStartX = e.touches[0].clientX
-      isSwiping = true
-      isUserInteracting = true
-      stopAutoPlay()
-    },
-    { passive: true },
-  )
+    const diffX = startX - currentX
+    const threshold = 50
 
-  carouselContainer.addEventListener(
-    "touchmove",
-    (e) => {
-      if (!isSwiping) return
-      touchEndX = e.touches[0].clientX
-    },
-    { passive: true },
-  )
-
-  carouselContainer.addEventListener(
-    "touchend",
-    () => {
-      if (!isSwiping) return
-      isSwiping = false
-
-      const swipeDistance = touchStartX - touchEndX
-      const minSwipeDistance = 50
-
-      if (Math.abs(swipeDistance) > minSwipeDistance) {
-        if (swipeDistance > 0) {
-          goToNext()
-        } else {
-          goToPrev()
-        }
+    if (Math.abs(diffX) > threshold) {
+      if (diffX > 0 && currentIndex < maxIndex) {
+        currentIndex++
+      } else if (diffX < 0 && currentIndex > 0) {
+        currentIndex--
       }
-
-      setTimeout(() => {
-        isUserInteracting = false
-        startAutoPlay()
-      }, 2000)
-    },
-    { passive: true },
-  )
-
-  // Optimized keyboard navigation
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      isUserInteracting = true
-
-      if (e.key === "ArrowLeft") {
-        goToPrev()
-      } else {
-        goToNext()
-      }
-
-      restartAutoPlay()
-      setTimeout(() => {
-        isUserInteracting = false
-      }, 1000)
+      updateCarousel()
     }
+
+    setTimeout(startAutoPlay, 3000)
   })
 
-  // Optimized resize handler with debouncing
-  let resizeTimeout
-  function handleResize() {
-    clearTimeout(resizeTimeout)
-    resizeTimeout = setTimeout(() => {
-      const newSlidesToShow = getSlidesToShow()
-
-      if (newSlidesToShow !== slidesToShow) {
-        slidesToShow = newSlidesToShow
-        currentIndex = Math.min(currentIndex, totalSlides - 1)
-      }
-
-      cacheMeasurements()
-      updateCarousel(false) // No smooth transition on resize
-    }, 150)
-  }
-
-  window.addEventListener("resize", handleResize)
-
-  // Visibility API for better performance when tab is not active
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      stopAutoPlay()
-    } else if (!isUserInteracting) {
-      startAutoPlay()
-    }
-  })
-
-  // Initialize carousel with optimizations
-  function initCarousel() {
-    if (slides.length === 0) return
-
-    cacheMeasurements()
-    updateCarousel(false)
-    startAutoPlay()
-
-    // Preload images for better performance
-    slides.forEach((slide) => {
-      const img = slide.querySelector("img")
-      if (img && !img.complete) {
-        img.loading = "eager"
-      }
-    })
-  }
-
-  // Start the carousel
-  initCarousel()
+  // Initialize carousel
+  updateCarousel()
+  startAutoPlay()
 
   // Smooth scrolling for anchor links
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
@@ -266,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault()
       const target = document.querySelector(this.getAttribute("href"))
       if (target) {
-        const offsetTop = target.offsetTop - 80
+        const offsetTop = target.offsetTop - 80 // Account for fixed navbar
         window.scrollTo({
           top: offsetTop,
           behavior: "smooth",
@@ -292,6 +215,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ticking) {
       requestAnimationFrame(updateNavbar)
       ticking = true
+    }
+  })
+
+  // Keyboard navigation for carousel
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" && currentIndex > 0) {
+      currentIndex--
+      updateCarousel()
+      stopAutoPlay()
+      setTimeout(startAutoPlay, 5000)
+    } else if (e.key === "ArrowRight" && currentIndex < maxIndex) {
+      currentIndex++
+      updateCarousel()
+      stopAutoPlay()
+      setTimeout(startAutoPlay, 5000)
     }
   })
 

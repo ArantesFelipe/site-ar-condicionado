@@ -294,7 +294,7 @@ body {
   margin-right: auto;
 }
 
-/* Carousel Section */
+/* Carousel Section - Fixed for last image visibility */
 .carousel-section {
   padding: 80px 0;
   background: #f8f9fa;
@@ -313,11 +313,13 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 60px;
+  overflow: hidden; /* Ensure no horizontal scroll */
 }
 
 .carousel-wrapper {
   overflow: hidden;
   border-radius: 15px;
+  width: 100%;
 }
 
 .carousel-track {
@@ -327,9 +329,22 @@ body {
 }
 
 .carousel-slide {
-  min-width: calc(33.333% - 20px);
-  margin: 0 10px;
   flex-shrink: 0;
+  margin: 0 10px;
+}
+
+/* Desktop: Fixed width for consistent spacing */
+@media (min-width: 769px) {
+  .carousel-slide {
+    width: 350px; /* Fixed width instead of percentage */
+  }
+}
+
+/* Mobile: Full width minus margins */
+@media (max-width: 768px) {
+  .carousel-slide {
+    width: calc(100vw - 120px); /* Account for container padding and margins */
+  }
 }
 
 .carousel-slide img {
@@ -614,10 +629,6 @@ html {
 
   .carousel-container {
     padding: 0 50px;
-  }
-
-  .carousel-slide {
-    min-width: calc(100% - 20px);
   }
 
   .carousel-btn {
